@@ -1,0 +1,16 @@
+{
+    "name": "discovery-engine-multi-auth",
+    "version": "1.0.0",
+    "description": "A multi-auth discovery engine example with Google's Workforce Identity Federation",
+    "main": "index.js",
+    "scripts": {
+      "start": "node index.js"
+    },
+    "dependencies": {
+      "@azure/msal-node": "^1.18.0",
+      "@okta/oidc-middleware": "^4.0.2",
+      "express": "^4.18.2",
+      "express-session": "^1.17.3",
+      "google-auth-library": "^8.7.0"
+    }
+  }
