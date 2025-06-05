@@ -168,7 +168,7 @@ app.get('/auth/azure/callback', oidc.ensureAuthenticated(), async (req, res, nex
                 'Authorization': `Bearer ${googleToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({"query":searchQuery,"pageSize":10,"queryExpansionSpec":{"condition":"AUTO"},"spellCorrectionSpec":{"mode":"AUTO"},"relevanceScoreSpec":{"returnRelevanceScore":true},"languageCode":"en-US","naturalLanguageQueryUnderstandingSpec":{"filterExtractionCondition":"ENABLED"},"userInfo":{"timeZone":"America/New_York"}})
+            body: JSON.stringify({"query":searchQuery,"pageSize":10,"spellCorrectionSpec":{"mode":"AUTO"},"relevanceScoreSpec":{"returnRelevanceScore":true},"languageCode":"en-US","naturalLanguageQueryUnderstandingSpec":{"filterExtractionCondition":"ENABLED"},"userInfo":{"timeZone":"America/New_York"}})
         });
 
         const searchResults = await discoveryResponse.json();
