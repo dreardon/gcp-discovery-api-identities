@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="error-page">
+    <div class="container">
+        <h1><%= title %></h1>
+        <p><%= message %></p>
+        <% if (details) { %>
+            <div class="error-details">
+                <p><strong>Details:</strong> <%= details %></p>
+            </div>
+        <% } %>
+        <% if (stack && process.env.NODE_ENV !== 'production') { %>
+            <div class="error-details">
+                <h3>Stack Trace (Development Mode):</h3>
+                <pre><%= stack %></pre>
+            </div>
+        <% } %>
+        <p style="margin-top: 20px;"><a href="/">Go to Homepage</a></p>
+         <% if (req && req.userContext) { %> <!-- Check if user is logged in -->
+            <p><a href="/profile">Go to Profile</a></p>
+            <p><a href="/logout">Logout</a></p>
+        <% } %>
+    </div>
+</body>
+</html>

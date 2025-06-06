@@ -1,12 +1,18 @@
 const express = require('express');
 const session = require('express-session');
+const path = require('path');
 const { ExpressOIDC } = require('@okta/oidc-middleware');
 const { ConfidentialClientApplication, CryptoProvider } = require('@azure/msal-node');
-const { GoogleAuth } = require('google-auth-library');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
@@ -28,6 +34,9 @@ const oidc = new ExpressOIDC({
     loginCallback: {
       path: '/authorization-code/callback',
       afterCallback: '/profile'
+    },
+    logout: {
+      path: '/logout'
     }
   }
 });
@@ -46,40 +55,31 @@ const msalClient = new ConfidentialClientApplication(msalConfig);
 
 const cryptoProvider = new CryptoProvider();
 const AZURE_REDIRECT_URI = (process.env.APP_BASE_URL || `http://localhost:${port}`) + '/auth/azure/callback';
-const AZURE_SCOPES = ["https://graph.microsoft.com/.default"]; // Or more specific delegated scopes like "User.Read"
-
-const googleAuth = new GoogleAuth({
-    scopes: 'https://www.googleapis.com/auth/cloud-platform'
-});
+const AZURE_SCOPES = ["https://graph.microsoft.com/.default"];
 
 app.get('/', (req, res) => {
-  res.send(`
-    <h1>Hello World!</h1>
-    <p>This is the public home page.</p>
-    <a href="/login">Login with Initial IDP</a>
-  `);
+  res.render('index', { title: 'Example Initial Landing Page' });
 });
 
 app.get('/profile', oidc.ensureAuthenticated(), (req, res) => {
   const user = req.userContext.userinfo;
-  res.send(`
-    <h1>Welcome, ${user.name}!</h1>
-    <h2>Okta Token Details:</h2>
-    <pre>${JSON.stringify(req.userContext, null, 2)}</pre>
-    <hr>
-    <h2>Search with Google Discovery Engine</h2>
-    <form action="/search" method="post">
-      <input type="text" name="query" placeholder="Enter your search query" required>
-      <button type="submit">Search</button>
-    </form>
-  `);
+  res.render('profile', {
+    title: 'User Profile',
+    user: user,
+    userContext: req.userContext
+  });
 });
 
 app.post('/search', oidc.ensureAuthenticated(), async (req, res, next) => {
     const searchQuery = req.body.query;
 
     if (!searchQuery) {
-        return res.status(400).send("Search query is missing.");
+        return res.status(400).render('error', {
+            title: 'Search Error',
+            message: 'Search query is missing.',
+            details: 'Please enter a search term.',
+            req: req
+        });
     }
     req.session.searchQuery = searchQuery;
 
@@ -101,14 +101,20 @@ app.post('/search', oidc.ensureAuthenticated(), async (req, res, next) => {
 
     } catch (error) {
         console.error("Error during Azure AD auth initiation:", error);
-        next(error);
+        return next(error);
     }
 });
 
 app.get('/auth/azure/callback', oidc.ensureAuthenticated(), async (req, res, next) => {
     if (req.query.state !== req.session.authState) {
         console.error("State mismatch error");
-        return res.status(400).send("Error: State mismatch. Potential CSRF attack.");
+        return res.status(400).render('error', {
+            title: 'Authentication Error',
+            message: 'State mismatch. Potential CSRF attack.',
+            details: 'The authentication state did not match. This could indicate a security issue. Please try logging in again.',
+            stack: process.env.NODE_ENV !== 'production' ? 'State mismatch details hidden for security.' : undefined,
+            req: req
+        });
     }
 
     const tokenRequest = {
@@ -124,7 +130,13 @@ app.get('/auth/azure/callback', oidc.ensureAuthenticated(), async (req, res, nex
     delete req.session.searchQuery;
 
     if (!searchQuery) {
-        return res.status(400).send("Search query not found in session. Please try searching again.");
+        return res.status(400).render('error', {
+            title: 'Search Error',
+            message: 'Search query not found in session.',
+            details: 'Your session might have expired or the search query was lost. Please try searching again from the profile page.',
+            stack: null,
+            req: req
+        });
     }
 
     try {
@@ -168,7 +180,13 @@ app.get('/auth/azure/callback', oidc.ensureAuthenticated(), async (req, res, nex
                 'Authorization': `Bearer ${googleToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({"query":searchQuery,"pageSize":10,"spellCorrectionSpec":{"mode":"AUTO"},"relevanceScoreSpec":{"returnRelevanceScore":true},"languageCode":"en-US","naturalLanguageQueryUnderstandingSpec":{"filterExtractionCondition":"ENABLED"},"userInfo":{"timeZone":"America/New_York"}})
+            body: JSON.stringify({"query":searchQuery,
+              "pageSize":10,
+              "spellCorrectionSpec":{"mode":"AUTO"},
+              "relevanceScoreSpec":{"returnRelevanceScore":true},
+              "languageCode":"en-US",
+              "naturalLanguageQueryUnderstandingSpec":{"filterExtractionCondition":"ENABLED"},
+              "userInfo":{"timeZone":"America/New_York"}})
         });
 
         const searchResults = await discoveryResponse.json();
@@ -177,36 +195,26 @@ app.get('/auth/azure/callback', oidc.ensureAuthenticated(), async (req, res, nex
             throw new Error(`Discovery Engine API request failed with status ${discoveryResponse.status}: ${JSON.stringify(searchResults)}`);
         }
 
-        res.send(`
-            <h1>Search Results</h1>
-            <h2>Query: ${searchQuery}</h2>
-            <h3>Azure AD Token (obtained via interactive flow):</h3>
-            <pre>${JSON.stringify(azureAuthResponse, null, 2)}</pre>
-            <h3>Google Cloud Access Token:</h3>
-            <pre>${googleToken}</pre>
-            <h3>Discovery Engine Results:</h3>
-            <pre>${JSON.stringify(searchResults, null, 2)}</pre>
-            <h2>Search with Google Discovery Engine</h2>
-            <form action="/search" method="post">
-              <input type="text" name="query" placeholder="Enter your search query" required>
-              <button type="submit">Search</button>
-            </form>
-        `);
+        res.render('search-results', {
+            title: 'Search Results',
+            searchQuery: searchQuery,
+            azureAuthResponse: azureAuthResponse,
+            googleToken: googleToken,
+            searchResults: searchResults,
+            req: req
+        });
 
     } catch (error) {
         console.error("Error in Azure AD callback or search execution:", error);
-        res.status(500).send(`
-            <h1>Error</h1>
-            <p>An error occurred during the search process.</p>
-            <p>Details: ${error.message}</p>
-            <pre>${error.stack ? error.stack : JSON.stringify(error, null, 2)}</pre>
-        `);
+        return next(error);
     }
 });
 
 app.get('/logout', (req, res) => {
-    req.logout();
+  if (req.logout && typeof req.logout === 'function') { 
+    req.logout(); 
     res.redirect('/');
+  }
 });
 
 oidc.on('ready', () => {
@@ -220,8 +228,12 @@ oidc.on('error', err => {
 // Basic error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).send(`
-        <h1>Something broke!</h1>
-        <pre>${err.message}</pre>
-    `);
+    res.status(err.status || 500);
+    res.render('error', {
+        title: 'Error',
+        message: err.message || 'Something went wrong!',
+        details: err.details,
+        stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+        req: req
+    });
 });

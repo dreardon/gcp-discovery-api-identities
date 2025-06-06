@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="search-results-page">
+    <div class="navbar">
+        <span>Search Results</span>
+        <div>
+            <a href="/profile">Back to Profile</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </div>
+    <div class="container">
+        <h1><%= title %></h1>
+        <hr>
+        <h2 class="section-title">Query: "<%= searchQuery %>"</h2>
+
+        <% if (azureAuthResponse) { %>
+            <h3 class="section-title">Azure AD Token Details:</h3>
+            <pre><%= JSON.stringify(azureAuthResponse, null, 2) %></pre>
+        <% } %>
+
+        <% if (googleToken) { %>
+            <h3 class="section-title">Google Cloud Access Token:</h3>
+            <pre><%= googleToken %></pre>
+        <% } %>
+
+        <% if (searchResults) { %>
+            <h3 class="section-title">Discovery Engine Results:</h3>
+            <pre><%= JSON.stringify(searchResults, null, 2) %></pre>
+        <% } %>
+
+        <hr>
+        <h2>Search Again</h2>
+        <form action="/search" method="post">
+          <input type="text" name="query" placeholder="Enter your search query" required>
+          <button type="submit">Search</button>
+        </form>
+    </div>
+</body>
+</html>
