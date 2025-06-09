@@ -8,7 +8,7 @@ The key features include:
 
 1.  **Initial User Authentication:** Users first authenticate with Okta using the OpenID Connect (OIDC) protocol.
 2.  **On-Demand Microsoft Entra ID Authentication:** For specific actions (like performing a search), the user is interactively authenticated with Microsoft Entra ID.
-3.  **Workforce Identity Federation:** The ID token obtained from Entra ID is then exchanged for a Google Cloud access token via Workforce Identity Federation. This allows Entra ID identities to securely access Google Cloud resources without needing separate Google Cloud identities or long-lived service account keys.
+3.  **Workforce Identity Federation:** The ID token obtained from Entra ID is then exchanged for a Google Cloud access token via [Workforce Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds#azure). This allows Entra ID identities to securely access Google Cloud resources without needing separate Google Cloud identities or long-lived service account keys.
 4.  **Google Discovery Engine Integration:** The federated Google Cloud credential is used to authorize requests to the Google Discovery Engine API, enabling secure, identity-aware search functionality and access control.
 
 This setup is designed for scenarios where an organization uses Okta, or another provider, as its primary IdP, but also Microsoft Entra ID for certain user segments or applications. In these scenarios, the group claims and token from Entra ID may be needed to securely enforce access control of Discovery Engine data sources.
@@ -78,12 +78,16 @@ printf 'y' |  gcloud services enable artifactregistry.googleapis.com
 printf 'y' |  gcloud services enable cloudbuild.googleapis.com
 printf 'y' |  gcloud services enable run.googleapis.com
 
+gcloud iam service-accounts create cloudrun-build-sa \
+  --description="Custom Cloud Run Build Service Account" \
+  --display-name="Custom Cloud Run Build Service Account"
+
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
---member=serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com \
+--member=serviceAccount:cloudrun-build-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role=roles/cloudbuild.builds.builder
 
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
---member=serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com \
+--member=serviceAccount:cloudrun-build-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role='roles/logging.logWriter'
 
 gcloud run deploy agentspace-api-identities \
@@ -92,6 +96,7 @@ gcloud run deploy agentspace-api-identities \
   --region $REGION \
   --allow-unauthenticated \
   --project $PROJECT_ID \
+  --build-service-account projects/$PROJECT_ID/serviceAccounts/cloudrun-build-sa@$PROJECT_ID.iam.gserviceaccount.com  \
   --set-env-vars="OKTA_ISSUER=$OKTA_ISSUER" \
   --set-env-vars="OKTA_CLIENT_ID=$OKTA_CLIENT_ID" \
   --set-env-vars="OKTA_CLIENT_SECRET=$OKTA_CLIENT_SECRET" \
