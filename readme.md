@@ -15,12 +15,11 @@ This setup is designed for scenarios where an organization uses Okta, or another
 
 ![Quick Walkthrough](images/walkthrough.gif)
 
-
-
-
 ## Google Disclaimer
 This is not an officially supported Google product
 
+## Communication
+![Communication Flow](images/communication_flow.png)
 ## Prerequisites
 
 Before you can run this project, ensure you have the following set up and configured:
